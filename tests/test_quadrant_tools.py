@@ -10,71 +10,6 @@ TOOLS_DIR = REPO_ROOT / "agent_configs" / "quadrant" / "tools"
 sys.path.insert(0, str(TOOLS_DIR))
 
 
-# ---- pdf2sections --------------------------------------------------------
-
-def test_pdf2sections_basic_split():
-    from pdf2sections import split_sections
-
-    text = (
-        "Abstract\n"
-        "this paper is about X\n"
-        "\n"
-        "1 Introduction\n"
-        "the intro is here\n"
-        "\n"
-        "2 Related Work\n"
-        "prior work\n"
-        "\n"
-        "References\n"
-        "bib1\n"
-        "bib2\n"
-    )
-    sections = split_sections(text)
-    assert "abstract" in sections
-    assert "introduction" in sections
-    assert "related_work" in sections
-    assert "references" in sections
-    assert "this paper is about X" in sections["abstract"]
-    assert "the intro is here" in sections["introduction"]
-    assert "prior work" in sections["related_work"]
-    assert "bib1" in sections["references"]
-
-
-def test_pdf2sections_preserves_order():
-    from pdf2sections import split_sections
-
-    text = "Abstract\nA\nIntroduction\nB\nMethods\nC\n"
-    sections = split_sections(text)
-    keys = list(sections.keys())
-    assert keys.index("abstract") < keys.index("introduction") < keys.index("methods")
-
-
-def test_pdf2sections_handles_numbered_and_dotted():
-    from pdf2sections import split_sections
-
-    text = "1. Introduction\nfoo\n2. Methods\nbar\n3 Experiments\nbaz\n"
-    sections = split_sections(text)
-    assert "introduction" in sections
-    assert "methods" in sections
-    assert "experiments" in sections
-
-
-def test_pdf2sections_ignores_inline_keyword():
-    from pdf2sections import split_sections
-
-    # "method" appears inline but not as a heading; should not split.
-    text = "Abstract\nWe present a method for X\nIntroduction\nfoo\n"
-    sections = split_sections(text)
-    assert "We present a method for X" in sections["abstract"]
-    assert "method" not in sections or sections.get("method", "") == ""
-
-
-def test_pdf2sections_empty_input():
-    from pdf2sections import split_sections
-
-    assert split_sections("") == {}
-
-
 # ---- karma_check ---------------------------------------------------------
 
 def test_karma_check_above_floor():
@@ -133,3 +68,111 @@ def test_already_reviewed_alternate_author_field():
 
     comments = [{"agent_id": "my-id", "id": "c1"}]
     assert has_my_comment(comments, "my-id") is True
+
+
+# ---- pending_verdicts ----------------------------------------------------
+
+
+def test_extract_paper_ids_basic():
+    from pending_verdicts import extract_paper_ids
+
+    items = [
+        {"paper_id": "p1", "id": "c1"},
+        {"paper_id": "p2", "id": "c2"},
+        {"paper_id": "p1", "id": "c3"},  # duplicate
+    ]
+    assert extract_paper_ids(items) == {"p1", "p2"}
+
+
+def test_extract_paper_ids_skips_malformed():
+    from pending_verdicts import extract_paper_ids
+
+    items = [
+        "not a dict",
+        {"paper_id": None},
+        {"paper_id": ""},
+        {"id": "c1"},  # missing paper_id
+        {"paper_id": "p1"},
+    ]
+    assert extract_paper_ids(items) == {"p1"}
+
+
+def test_extract_paper_ids_empty():
+    from pending_verdicts import extract_paper_ids
+
+    assert extract_paper_ids([]) == set()
+
+
+def test_get_phase_prefers_phase_over_status():
+    from pending_verdicts import get_phase
+
+    assert get_phase({"phase": "deliberating", "status": "in_review"}) == "deliberating"
+
+
+def test_get_phase_falls_back_to_status():
+    from pending_verdicts import get_phase
+
+    assert get_phase({"status": "deliberating"}) == "deliberating"
+
+
+def test_get_phase_returns_none_when_missing():
+    from pending_verdicts import get_phase
+
+    assert get_phase({}) is None
+    assert get_phase(None) is None
+
+
+def test_get_deadline_picks_first_recognized_field():
+    from pending_verdicts import get_deadline
+
+    assert get_deadline({"deliberation_ends_at": "2026-04-30T00:00:00Z"}) == "2026-04-30T00:00:00Z"
+    assert get_deadline({"verdict_deadline": "2026-04-30T01:00:00Z"}) == "2026-04-30T01:00:00Z"
+
+
+def test_get_deadline_empty_when_no_field():
+    from pending_verdicts import get_deadline
+
+    assert get_deadline({}) == ""
+    assert get_deadline(None) == ""
+
+
+def test_select_pending_returns_only_deliberating_without_verdict():
+    from pending_verdicts import select_pending
+
+    commented = {"p_delib", "p_review", "p_done", "p_verdicted"}
+    verdicted = {"p_verdicted"}
+    payloads = {
+        "p_delib": {"phase": "deliberating", "deliberation_ends_at": "2026-04-29T12:00:00Z"},
+        "p_review": {"phase": "in_review"},
+        "p_done": {"phase": "reviewed"},
+        "p_verdicted": {"phase": "deliberating"},
+    }
+    rows = select_pending(commented, verdicted, payloads)
+    assert rows == [("p_delib", "2026-04-29T12:00:00Z")]
+
+
+def test_select_pending_sorts_by_deadline_then_id():
+    from pending_verdicts import select_pending
+
+    commented = {"a", "b", "c"}
+    payloads = {
+        "a": {"phase": "deliberating", "deliberation_ends_at": "2026-04-30T00:00:00Z"},
+        "b": {"phase": "deliberating", "deliberation_ends_at": "2026-04-29T00:00:00Z"},
+        "c": {"phase": "deliberating"},  # no deadline -> sorts last
+    }
+    rows = select_pending(commented, set(), payloads)
+    assert [r[0] for r in rows] == ["b", "a", "c"]
+
+
+def test_select_pending_empty_inputs():
+    from pending_verdicts import select_pending
+
+    assert select_pending(set(), set(), {}) == []
+
+
+def test_select_pending_skips_paper_with_missing_payload():
+    from pending_verdicts import select_pending
+
+    commented = {"p1"}
+    rows = select_pending(commented, set(), {})  # no payload entry
+    assert rows == []

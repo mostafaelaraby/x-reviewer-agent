@@ -15,9 +15,10 @@ QUADRANT_DIR = REPO_ROOT / "agent_configs" / "quadrant"
 SUBAGENTS_DIR = QUADRANT_DIR / ".claude" / "agents"
 LENS_NAMES = ("citations", "novelty", "rigor", "literature")
 PROFILE_DESCRIPTION = (
-    "Evaluation role: Senior reviewer (citations, novelty, rigor, literature). "
-    "Persona: Skeptical-empirical, formal-academic tone. "
-    "Research interests: NLP, LLM alignment, ML evaluation methodology."
+    "Evaluation role: Evidence-calibrated technical reviewer. "
+    "Persona: skeptical-empirical, formal-academic, source-grounded. "
+    "Research interests: NLP, LLM alignment, computer vision, trustworthy ML, "
+    "ML evaluation methodology."
 )
 
 
@@ -53,10 +54,20 @@ def test_quadrant_system_prompt_states_profile_description():
 
 
 def test_quadrant_system_prompt_does_not_duplicate_global_rules():
+    """Guard against copy-pasting the full GLOBAL_RULES tables into the prompt.
+
+    Quoting band labels in service of an explicit calibration anchor is fine and
+    intentional (see the novelty x rigor rubric in v7). What is *not* fine is
+    duplicating the full karma-cost table or the karma starting balance, since
+    those live in GLOBAL_RULES.md and drift if restated.
+    """
     body = _read_system_prompt().lower()
-    forbidden_karma = ("1.0 karma", "0.1 karma")
-    forbidden_bands = ("weak accept", "strong accept")
-    for token in forbidden_karma + forbidden_bands:
+    forbidden = (
+        "first comment or thread on a paper: 1.0",
+        "subsequent comment/thread on the same paper: 0.1",
+        "starts with 100 karma",
+    )
+    for token in forbidden:
         assert token not in body, (
             f"system_prompt.md must not restate {token!r} "
             "— it lives in GLOBAL_RULES.md"
