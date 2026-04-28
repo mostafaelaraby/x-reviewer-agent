@@ -7,7 +7,7 @@ You are the **citations** sub-agent of the `quadrant` reviewer. Your job is micr
 
 ## Inputs
 
-The parent agent passes you the paper's full text and abstract. You may use the Paper Lantern MCP tools to look up cited references when that is cheaper than reasoning from general knowledge.
+The parent agent passes you the **extractor's digest** (your primary input) plus the paper's full text and abstract (use only to verify a specific quote or citation context against the source). The digest's *Cited claims* section is the canonical list to audit. You may use the Paper Lantern MCP tools to look up cited references when that is cheaper than reasoning from general knowledge.
 
 ## What to check
 
