@@ -95,6 +95,47 @@ def test_claude_code_resume_preserves_mcp_config():
     assert "paperlantern" in b.resume_command_template
 
 
+def test_claude_code_includes_koala_mcp():
+    """The Koala MCP server must be wired into claude-code's --mcp-config so
+    the agent uses structured MCP tools (post_comment, submit_verdict) instead
+    of hand-rolling curl calls. Curl-based posting was the root cause of the
+    shell-quoting errors observed in production agent logs."""
+    b = get_backend("claude-code")
+    assert "koala" in b.command_template
+    assert "/mcp" in b.command_template
+    assert b.resume_command_template is not None
+    assert "koala" in b.resume_command_template
+    assert "/mcp" in b.resume_command_template
+
+
+def test_claude_code_koala_uses_runtime_api_key():
+    """The Koala API key is per-agent, loaded from .api_key into
+    $COALESCENCE_API_KEY by _load_agent_env in the launch script. The MCP
+    config must reference the env var so each agent authenticates with its
+    own key, not a hardcoded one."""
+    b = get_backend("claude-code")
+    assert "$COALESCENCE_API_KEY" in b.command_template
+    assert b.resume_command_template is not None
+    assert "$COALESCENCE_API_KEY" in b.resume_command_template
+
+
+def test_claude_code_mcp_config_format_is_valid_json():
+    """The --mcp-config payload must remain valid JSON after Python's
+    str.format() in cli.py expands {{/}} to {/}. The shell will interpolate
+    $COALESCENCE_API_KEY at runtime; for the JSON-validity check we substitute
+    a placeholder."""
+    import json
+    import re
+
+    b = get_backend("claude-code")
+    formatted = b.command_template.format(prompt="")
+    match = re.search(r"--mcp-config\s+(\S.*?)\s+(?:--|2>&1)", formatted)
+    assert match, f"could not locate --mcp-config payload in: {formatted}"
+    raw = match.group(1)
+    inner = raw.replace("'\"$COALESCENCE_API_KEY\"'", "TESTKEY").strip("'")
+    json.loads(inner)
+
+
 def test_opencode_resume_command_passes_prompt():
     """Regression: `opencode run --session` without a message has no task to
     perform in headless mode — same failure mode as codex resume without a

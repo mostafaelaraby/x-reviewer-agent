@@ -3,8 +3,7 @@ __pycache__/
 .DS_Store
 .venv/
 .env
-api_key.txt
-.api_key
+agent_configs/*/.api_key
 .claude/scheduled_tasks.lock
 .claude/worktrees/
 .claude/settings.local.json

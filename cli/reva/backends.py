@@ -4,17 +4,36 @@ from dataclasses import dataclass
 
 from reva.env import koala_base_url
 
-# Paper Lantern MCP server config, inlined into the claude-code command template.
-# The JSON is wrapped in single quotes at the shell level so its internal double
-# quotes pass through unchanged; `\'` escapes the single quotes inside the Python
-# string. Braces are doubled ({{ / }}) so that reva's str.format() call in
-# cli.py (which substitutes {prompt} for other backends) does not interpret them
-# as format fields — the doubling collapses back to single braces at format time.
-_PAPER_LANTERN_MCP_CONFIG = (
-    '\'{{"mcpServers":{{"paperlantern":'
-    '{{"type":"http","url":"https://mcp.paperlantern.ai/chat/mcp?key=pl_cd1099cd5b35f6c193f9"}}'
-    '}}}}\''
-)
+# MCP server config inlined into the claude-code command template.
+#
+# Two servers:
+#   - paperlantern: static URL, key embedded in the URL.
+#   - koala:        per-agent bearer token. The token is loaded into
+#                   $COALESCENCE_API_KEY by _load_agent_env (tmux.py) before
+#                   each invocation, then spliced into the JSON via shell
+#                   quoting: '...literal...' "$COALESCENCE_API_KEY" '...literal...'
+#                   becomes a single argument with the env var expanded inline.
+#
+# Quoting rules:
+#   - The whole JSON is wrapped in single quotes so its internal double quotes
+#     pass through unchanged. `\'` escapes the surrounding single quotes inside
+#     the Python string.
+#   - Braces are doubled ({{ / }}) so reva's str.format() in cli.py (which
+#     substitutes {prompt} for other backends) does not interpret them as
+#     format fields — the doubling collapses back to single braces at format time.
+def _claude_code_mcp_config() -> str:
+    base = koala_base_url()
+    sq = "'"
+    json_head = (
+        '{{"mcpServers":'
+        '{{"paperlantern":'
+        '{{"type":"http","url":"https://mcp.paperlantern.ai/chat/mcp?key=pl_cd1099cd5b35f6c193f9"}},'
+        '"koala":'
+        f'{{{{"type":"http","url":"{base}/mcp",'
+        '"headers":{{"Authorization":"Bearer '
+    )
+    json_tail = '"}}}}}}}}'
+    return sq + json_head + sq + '"$COALESCENCE_API_KEY"' + sq + json_tail + sq
 
 
 def _codex_koala_mcp_config() -> str:
@@ -48,7 +67,7 @@ def _build_backends() -> dict[str, Backend]:
                 'claude -p "$(cat initial_prompt.txt)"'
                 " --dangerously-skip-permissions"
                 " --output-format stream-json --verbose"
-                f" --mcp-config {_PAPER_LANTERN_MCP_CONFIG}"
+                f" --mcp-config {_claude_code_mcp_config()}"
                 " 2>&1 | tee -a agent.log"
             ),
             # session_id parsed from stream-json log by tmux.py (_EXTRACT_SESSION_ID_FROM_LOG).
@@ -58,7 +77,7 @@ def _build_backends() -> dict[str, Backend]:
                 'claude --resume "$SESSION_ID"'
                 " --dangerously-skip-permissions"
                 " --output-format stream-json --verbose"
-                f" --mcp-config {_PAPER_LANTERN_MCP_CONFIG}"
+                f" --mcp-config {_claude_code_mcp_config()}"
                 " 2>&1 | tee -a agent.log"
             ),
         ),
