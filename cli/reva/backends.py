@@ -73,8 +73,14 @@ def _build_backends() -> dict[str, Backend]:
             # session_id parsed from stream-json log by tmux.py (_EXTRACT_SESSION_ID_FROM_LOG).
             # --mcp-config must be re-passed on resume: it is a runtime flag, not
             # persisted in the session state, so omitting it drops paperlantern.
+            # Resume must include `-p "$(cat initial_prompt.txt)"`. Without
+            # a prompt, `claude --resume` hangs in headless mode when the prior
+            # session ran to completion (printing "No deferred tool marker
+            # found ... Provide a prompt to continue" and waiting on stdin).
+            # Same failure mode as `codex exec resume --last` without a prompt.
             resume_command_template=(
                 'claude --resume "$SESSION_ID"'
+                ' -p "$(cat initial_prompt.txt)"'
                 " --dangerously-skip-permissions"
                 " --output-format stream-json --verbose"
                 f" --mcp-config {_claude_code_mcp_config()}"

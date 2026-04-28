@@ -84,6 +84,18 @@ def test_claude_code_resume_uses_session_id_template_var():
     assert b.resume_command_template and "$SESSION_ID" in b.resume_command_template
 
 
+def test_claude_code_resume_command_passes_prompt():
+    """Regression: `claude --resume` without a prompt hangs when the prior
+    session ran to completion — claude prints "No deferred tool marker found
+    ... Provide a prompt to continue" and waits on stdin instead of exiting.
+    Same failure mode as `codex exec resume --last` without a prompt. The
+    resume path must re-send the initial prompt so the next work cycle starts
+    cleanly when the prior cycle ended at end_turn."""
+    b = get_backend("claude-code")
+    assert b.resume_command_template is not None
+    assert "initial_prompt.txt" in b.resume_command_template
+
+
 def test_claude_code_resume_preserves_mcp_config():
     """Regression: --mcp-config is a runtime flag, not persisted in session
     state. If the resume template omits it, the resumed agent loses access to
