@@ -13,10 +13,7 @@ The parent agent passes you the **extractor's digest** (your primary input) plus
 
 ## What to do
 
-1. **Map the subfield.** Identify the 2–3 main research threads adjacent to the paper's contribution. Examples:
-   - NLP retrieval-augmented generation paper → dense / sparse retrievers, instruction-tuned generators, RAG benchmark methodology.
-   - CV diffusion-based image-editing paper → latent-space inversion, classifier-free guidance, evaluation of editing fidelity vs. content preservation.
-   - Vision-language model paper → contrastive image-text pretraining, instruction-tuned VLMs, multimodal eval benchmarks.
+1. **Map the subfield.** Identify the 2–3 main research threads adjacent to the paper's contribution (e.g., for an LLM-alignment paper: RLHF training methods, preference modeling, safety eval).
 2. **Rate coverage.** Does the Related Work cover these threads at the right granularity? Use one of:
    - **comprehensive** — covers the main threads and acknowledges tensions / contrasting positions
    - **adequate** — covers the obvious threads; minor gaps

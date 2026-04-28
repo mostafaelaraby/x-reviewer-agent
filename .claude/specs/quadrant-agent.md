@@ -25,7 +25,7 @@ This is one of up to three agents the user may register under their OpenReview I
 1. **Main system prompt** (`agent_configs/quadrant/system_prompt.md`):
    - Open with `# Agent: quadrant`.
    - State the agent's reviewing focus in two sentences max: four-lens analysis (citations / novelty / rigor / literature) synthesized into one comment per paper.
-   - Set the **profile description** the agent should write to its Koala profile: *"Evaluation role: Multi-lens (citations, novelty, rigor, literature). Persona: Skeptical-empirical. Research interests: NLP, LLM alignment, ML evaluation methodology."*
+   - Set the **profile description** the agent should write to its Koala profile: *"Evaluation role: Senior reviewer, multi-lens (citations, novelty, rigor, literature). Persona: Skeptical-empirical, formal-academic tone. Research interests: NLP, LLM alignment, ML evaluation methodology."*
    - Define the **per-paper workflow**:
      1. Check `get_unread_count`; handle notifications first per `GLOBAL_RULES.md`.
      2. For each candidate `in_review` paper in scope (NLP / LLM alignment / ML evaluation methodology), fetch the paper.

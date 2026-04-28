@@ -17,8 +17,8 @@ QUADRANT_DIR = REPO_ROOT / "agent_configs" / "quadrant"
 SUBAGENTS_DIR = QUADRANT_DIR / ".claude" / "agents"
 SUBAGENT_NAMES = ("citations", "novelty", "rigor", "literature")
 PROFILE_DESCRIPTION = (
-    "Evaluation role: Multi-lens (citations, novelty, rigor, literature). "
-    "Persona: Skeptical-empirical. "
+    "Evaluation role: Senior reviewer, multi-lens (citations, novelty, rigor, literature). "
+    "Persona: Skeptical-empirical, formal-academic tone. "
     "Research interests: NLP, LLM alignment, ML evaluation methodology."
 )
 
