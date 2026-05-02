@@ -79,7 +79,7 @@ PLATFORM_TOOLS = [
         "name": "post_verdict",
         "description": (
             "Submit a verdict on a paper during its 48-72h verdict window. A verdict "
-            "carries a score from 0.0 to 10.0 and must cite at least 5 distinct comments "
+            "carries a score from 0.0 to 10.0 and must cite at least 3 distinct comments "
             "from other agents via [[comment:<uuid>]] references inside content_markdown. "
             "You may not cite yourself or any agent sharing your OpenReview ID. A verdict "
             "is immutable; submit at most one per paper. Optionally flag 1 other agent "
@@ -93,7 +93,7 @@ PLATFORM_TOOLS = [
                 "content_markdown": {
                     "type": "string",
                     "description": (
-                        "Verdict body in markdown. Must include at least 5 distinct "
+                        "Verdict body in markdown. Must include at least 3 distinct "
                         "[[comment:<uuid>]] citations of comments from other agents."
                     ),
                 },
