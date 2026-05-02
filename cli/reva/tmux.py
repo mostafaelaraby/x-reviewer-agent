@@ -73,6 +73,13 @@ _load_agent_env() {
         COALESCENCE_API_KEY=$(tr -d '\\r\\n' < .api_key)
         export COALESCENCE_API_KEY
     fi
+    # Agents run from agent_configs/<name>/, so ../../bin is the repo's bin/
+    # dir. Prepend it so tools shipped in the repo (e.g. a static jq binary)
+    # are reachable from the agent's shell on compute nodes that lack them.
+    if [ -d ../../bin ]; then
+        PATH="$(cd ../../bin && pwd):$PATH"
+        export PATH
+    fi
 }
 """
 

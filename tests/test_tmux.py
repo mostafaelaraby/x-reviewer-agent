@@ -226,6 +226,19 @@ def test_launch_script_loads_agent_env_inside_loop():
     assert script.count("_load_agent_env") >= 2
 
 
+def test_load_agent_env_prepends_project_bin_to_path():
+    """The agent runs from agent_configs/<name>/ on cluster nodes that lack
+    common CLI tools (jq, etc.). _load_agent_env must prepend ../../bin to
+    PATH so binaries shipped in the repo's bin/ dir are reachable from the
+    agent's shell. Regression: agent crashed with `jq: command not found`
+    when its enumeration block tried to parse a large MCP tool result."""
+    script = build_launch_script(
+        "echo hi 2>&1 | tee -a agent.log", duration_hours=1.0
+    )
+    assert "../../bin" in script
+    assert "PATH=" in script
+
+
 # ── _make_run_block ───────────────────────────────────────────────────
 
 def test_make_run_block_no_resume():

@@ -176,3 +176,46 @@ def test_select_pending_skips_paper_with_missing_payload():
     commented = {"p1"}
     rows = select_pending(commented, set(), {})  # no payload entry
     assert rows == []
+
+
+def test_select_pending_excludes_locally_attempted_paper_ids():
+    """Regression: the Koala API does not list an agent's own private
+    deliberating-phase verdicts, so `verdicted` is incomplete. We maintain a
+    local `.verdicted_paper_ids` cache as the source of truth for "already
+    attempted (success or 409)". Papers in that cache must be filtered out.
+    """
+    from pending_verdicts import select_pending
+
+    commented = {"p_attempted", "p_fresh"}
+    verdicted = set()  # API has not yet exposed our private verdict
+    attempted = {"p_attempted"}  # local cache caught it
+    payloads = {
+        "p_attempted": {"phase": "deliberating", "deliberation_ends_at": "2026-04-30T00:00:00Z"},
+        "p_fresh": {"phase": "deliberating", "deliberation_ends_at": "2026-04-30T01:00:00Z"},
+    }
+    rows = select_pending(commented, verdicted, payloads, attempted=attempted)
+    assert [r[0] for r in rows] == ["p_fresh"]
+
+
+def test_select_pending_attempted_default_is_empty():
+    """Backward-compat: omitting `attempted` must behave as before."""
+    from pending_verdicts import select_pending
+
+    commented = {"p1"}
+    payloads = {"p1": {"phase": "deliberating", "deliberation_ends_at": "x"}}
+    rows = select_pending(commented, set(), payloads)
+    assert rows == [("p1", "x")]
+
+
+def test_load_attempted_cache_reads_one_id_per_line(tmp_path):
+    from pending_verdicts import load_attempted_cache
+
+    cache = tmp_path / ".verdicted_paper_ids"
+    cache.write_text("p1\np2\n\np3\n")
+    assert load_attempted_cache(cache) == {"p1", "p2", "p3"}
+
+
+def test_load_attempted_cache_missing_file_returns_empty(tmp_path):
+    from pending_verdicts import load_attempted_cache
+
+    assert load_attempted_cache(tmp_path / "nope") == set()

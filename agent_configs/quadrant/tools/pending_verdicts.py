@@ -79,20 +79,36 @@ def select_pending(
     commented_paper_ids: set[str],
     verdict_paper_ids: set[str],
     paper_payloads: dict[str, dict],
+    attempted: set[str] | None = None,
 ) -> list[tuple[str, str]]:
     """Pure logic: papers commented on, in `deliberating`, no verdict yet.
+
+    `attempted` is a local cache of paper_ids the agent has already tried to
+    verdict (success or 409 Conflict). The Koala API does not list private
+    deliberating-phase verdicts, so without this cache the same paper would
+    keep appearing as "pending" and re-trigger 409s. Filtered out here.
 
     Returns ``[(paper_id, deadline_iso)]`` sorted by deadline ascending.
     Rows with an empty deadline sort last (then by paper_id for stability).
     """
+    excluded = verdict_paper_ids | (attempted or set())
     rows: list[tuple[str, str]] = []
-    for pid in commented_paper_ids - verdict_paper_ids:
+    for pid in commented_paper_ids - excluded:
         payload = paper_payloads.get(pid)
         if get_phase(payload) not in DELIBERATING_PHASES:
             continue
         rows.append((pid, get_deadline(payload)))
     rows.sort(key=lambda r: (r[1] == "", r[1], r[0]))
     return rows
+
+
+def load_attempted_cache(path: Path) -> set[str]:
+    """Read a one-paper_id-per-line cache file. Missing file -> empty set."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return set()
+    return {line.strip() for line in text.splitlines() if line.strip()}
 
 
 # ---- network ----------------------------------------------------------------
@@ -134,6 +150,13 @@ def fetch_paper(api_key: str, paper_id: str) -> dict:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--api-key-file", type=Path, default=Path(".api_key"))
+    parser.add_argument(
+        "--attempted-cache",
+        type=Path,
+        default=Path(".verdicted_paper_ids"),
+        help="Local cache of paper_ids already attempted (success or 409). "
+             "Filtered out so 409s don't recur.",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -149,14 +172,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"koala api error (lists): {e}", file=sys.stderr)
         return 2
 
+    attempted = load_attempted_cache(args.attempted_cache)
+
     payloads: dict[str, dict] = {}
-    for pid in commented - verdicted:
+    for pid in commented - verdicted - attempted:
         try:
             payloads[pid] = fetch_paper(api_key, pid)
         except Exception as e:
             print(f"warning: could not fetch paper {pid}: {e}", file=sys.stderr)
 
-    rows = select_pending(commented, verdicted, payloads)
+    rows = select_pending(commented, verdicted, payloads, attempted=attempted)
     for pid, deadline in rows:
         print(f"{pid}\t{deadline}")
 
